@@ -17,33 +17,13 @@
 
 确保您已安装 Python 3.10+ 和 uv 包管理器。
 
-### 自动安装
+
+
+### 手动安装依赖(应该不需要)
 ```bash
-cd jm-mcp-server
-uv sync
+uv pip install e .
 ```
 
-### 手动安装依赖
-```bash
-pip install jmcomic Pillow pyyaml
-```
-
-## 🚀 启动服务器
-
-### 基本启动
-```bash
-uv run src/server.py
-```
-
-### 自定义存储路径
-```bash
-uv --directory /path/to/jm-mcp-server run src/server.py --storage-path /your/download/path
-```
-
-### Windows 示例
-```bash
-uv --directory E:/AAProgramming/mcp_server/jm-mcp-server run src/server.py --storage-path C:/Users/YourName/Downloads
-```
 
 ## 🔧 配置文件
 
@@ -58,24 +38,7 @@ dir_rule:
 
 ## 🔗 MCP 客户端配置
 
-### Claude Desktop 配置
 
-在 Claude Desktop 的配置文件中添加：
-
-```json
-{
-  "mcpServers": {
-    "jm-comic": {
-      "command": "uv",
-      "args": [
-        "--directory", "/path/to/jm-mcp-server",
-        "run", "src/server.py",
-        "--storage-path", "/your/download/path"
-      ]
-    }
-  }
-}
-```
 
 ### Windows 配置示例
 
