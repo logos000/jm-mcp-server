@@ -11,12 +11,6 @@ dependencies = [
     "pyyaml",
 ]
 
-[project.optional-dependencies]
-android = [
-    "requests[socks]",  # 支持代理
-    "psutil",          # 系统监控
-]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

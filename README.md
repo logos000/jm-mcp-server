@@ -17,53 +17,16 @@
 
 确保您已安装 Python 3.10+ 和 uv 包管理器。
 
-### 桌面环境（Windows/Linux/macOS）
-
-#### 自动安装
+### 自动安装
 ```bash
 cd jm-mcp-server
 uv sync
 ```
 
-#### 手动安装依赖
+### 手动安装依赖
 ```bash
 pip install jmcomic Pillow pyyaml
 ```
-
-### 📱 Android环境（Termux）
-
-#### 1. 安装Termux
-从F-Droid下载：https://f-droid.org/packages/com.termux/
-
-#### 2. 配置环境
-```bash
-# 更新包管理器
-pkg update && pkg upgrade
-
-# 安装Python和工具
-pkg install python python-pip git
-
-# 获取存储权限
-termux-setup-storage
-
-# 克隆项目
-git clone <repo-url> jm-mcp-server
-cd jm-mcp-server
-
-# 测试Android环境
-python test_android.py
-
-# 安装依赖
-pip install -e .[android]
-```
-
-#### 3. Android特定配置
-```bash
-# 启动服务器（自动检测Android环境）
-python src/server.py --storage-path /storage/emulated/0/Download/JMComic
-```
-
-详细的Android部署指南请参阅：[ANDROID_SETUP.md](ANDROID_SETUP.md)
 
 ## 🚀 启动服务器
 

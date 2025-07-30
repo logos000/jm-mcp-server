@@ -12,53 +12,8 @@ import threading
 import time
 import argparse
 import yaml
-import platform
-import tempfile
 from PIL import Image
-from typing import List, Optional, Dict, Any
-
-def detect_platform():
-    """检测运行平台"""
-    system = platform.system().lower()
-    if system == 'linux' and 'android' in platform.platform().lower():
-        return 'android'
-    elif system == 'windows':
-        return 'windows'
-    elif system == 'linux':
-        return 'linux'
-    elif system == 'darwin':
-        return 'macos'
-    else:
-        return 'unknown'
-
-def get_default_download_path():
-    """根据平台获取默认下载路径"""
-    platform_type = detect_platform()
-    
-    if platform_type == 'android':
-        # Android环境下的可能路径
-        possible_paths = [
-            '/storage/emulated/0/Download',  # 标准下载目录
-            '/storage/emulated/0/Downloads', # 备选下载目录
-            '/sdcard/Download',              # 旧版Android
-            '/sdcard/Downloads',             # 旧版Android备选
-            '/data/data/com.termux/files/home/downloads',  # Termux环境
-            tempfile.gettempdir(),           # 临时目录备选
-        ]
-        
-        for path in possible_paths:
-            if os.path.exists(path) and os.access(path, os.W_OK):
-                return path
-        
-        # 如果都不可用，创建在临时目录
-        fallback_path = os.path.join(tempfile.gettempdir(), 'jm_comic_downloads')
-        os.makedirs(fallback_path, exist_ok=True)
-        return fallback_path
-        
-    elif platform_type == 'windows':
-        return os.path.join(os.path.expanduser('~'), 'Downloads')
-    else:  # Linux, macOS
-        return os.path.join(os.path.expanduser('~'), 'Downloads')
+from typing import List, Optional
 
 def parse_args():
     """解析命令行参数"""
@@ -94,30 +49,6 @@ def update_config_file(storage_path: str):
         print(f"更新配置文件失败: {e}")
         return False
 
-def create_default_config() -> Dict[str, Any]:
-    """创建默认配置文件，针对不同平台优化"""
-    platform_type = detect_platform()
-    default_path = get_default_download_path()
-    
-    config: Dict[str, Any] = {
-        'dir_rule': {
-            'base_dir': default_path
-        }
-    }
-    
-    # Android特定配置
-    if platform_type == 'android':
-        config['client'] = {
-            'download': {
-                'retry_times': 3,
-                'timeout': 30,
-                'concurrent_max': 2  # Android设备限制并发数
-            }
-        }
-        print(f"检测到Android环境，使用默认路径: {default_path}")
-    
-    return config
-
 # 解析命令行参数
 args = parse_args()
 
@@ -131,17 +62,7 @@ if args.storage_path:
 try:
     option = create_option_by_file('op.yml')
 except FileNotFoundError:
-    # 创建默认配置文件
-    print("配置文件不存在，创建默认配置...")
-    default_config = create_default_config()
-    
-    # 写入配置文件
-    with open('op.yml', 'w', encoding='utf-8') as f:
-        yaml.dump(default_config, f, default_flow_style=False, allow_unicode=True)
-    
-    # 重新加载配置
-    option = create_option_by_file('op.yml')
-    print(f"已创建默认配置文件，存储路径: {option.dir_rule.base_dir}")
+    option = JmOption.default()
 
 client = option.new_jm_client()
 app = FastMCP('jm-comic-server')
