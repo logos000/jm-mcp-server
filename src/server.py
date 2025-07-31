@@ -326,7 +326,7 @@ async def search_comic(
     query: str, 
     page: int = 1,
     main_tag: int = 0,
-    order_by: str = 'latest',
+    order_by: str = 'view',
     time_period: str = 'all',
     category: str = 'all'
 ) -> str:
@@ -337,7 +337,7 @@ async def search_comic(
         query: The search query.
         page: The page number to retrieve. Defaults to 1.
         main_tag: Main tag filter. Defaults to 0.
-        order_by: Sort order. Options: 'latest', 'view', 'picture', 'like'. Defaults to 'latest'.
+        order_by: Sort order. Options: 'latest', 'view', 'picture', 'like'. Defaults to 'view'.
         time_period: Time period filter. Options: 'today', 'week', 'month', 'all'. Defaults to 'all'.
         category: Category filter. Options: 'all', 'doujin', 'single', 'short', 'another', 
                  'hanman', 'meiman', 'doujin_cosplay', '3d', 'english_site'. Defaults to 'all'.
@@ -473,7 +473,7 @@ async def get_ranking_list(period: str = 'week') -> str:
 async def filter_comics_by_category(
     category: str = 'all',
     time_period: str = 'all',
-    order_by: str = 'latest',
+    order_by: str = 'view',
     page: int = 1
 ) -> str:
     """
@@ -485,7 +485,7 @@ async def filter_comics_by_category(
                  Defaults to 'all'.
         time_period: The time period to filter by. Options: 'today', 'week', 'month', 'all'.
                     Defaults to 'all'.
-        order_by: Sort order. Options: 'latest', 'view', 'picture', 'like'. Defaults to 'latest'.
+        order_by: Sort order. Options: 'latest', 'view', 'picture', 'like'. Defaults to 'view'.
         page: Page number to retrieve. Defaults to 1.
 
     Returns:
