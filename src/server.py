@@ -67,6 +67,67 @@ except FileNotFoundError:
 client = option.new_jm_client()
 app = FastMCP('jm-comic-server')
 
+# 统一的参数映射表
+PARAM_MAPPINGS = {
+    'order': {
+        'latest': JmMagicConstants.ORDER_BY_LATEST,   # 'mr'
+        'view': JmMagicConstants.ORDER_BY_VIEW,       # 'mv'
+        'picture': JmMagicConstants.ORDER_BY_PICTURE, # 'mp'
+        'like': JmMagicConstants.ORDER_BY_LIKE        # 'tf'
+    },
+    'time': {
+        'today': JmMagicConstants.TIME_TODAY,   # 't'
+        'week': JmMagicConstants.TIME_WEEK,     # 'w'
+        'month': JmMagicConstants.TIME_MONTH,   # 'm'
+        'all': JmMagicConstants.TIME_ALL        # 'a'
+    },
+    'category': {
+        'all': JmMagicConstants.CATEGORY_ALL,               # '0'
+        'doujin': JmMagicConstants.CATEGORY_DOUJIN,         # 'doujin'
+        'single': JmMagicConstants.CATEGORY_SINGLE,         # 'single'
+        'short': JmMagicConstants.CATEGORY_SHORT,           # 'short'
+        'another': JmMagicConstants.CATEGORY_ANOTHER,       # 'another'
+        'hanman': JmMagicConstants.CATEGORY_HANMAN,         # 'hanman'
+        'meiman': JmMagicConstants.CATEGORY_MEIMAN,         # 'meiman'
+        'doujin_cosplay': JmMagicConstants.CATEGORY_DOUJIN_COSPLAY, # 'doujin_cosplay'
+        '3d': JmMagicConstants.CATEGORY_3D,                 # '3D'
+        'english_site': JmMagicConstants.CATEGORY_ENGLISH_SITE  # 'english_site'
+    }
+}
+
+def get_mapped_value(param_type: str, user_value: str, default_key: str = 'all') -> str:
+    """
+    根据参数类型和用户输入值获取对应的JM常量值
+    
+    Args:
+        param_type: 参数类型 ('order', 'time', 'category')
+        user_value: 用户输入的值
+        default_key: 如果找不到映射时使用的默认键
+    
+    Returns:
+        对应的JM常量值
+    """
+    mapping = PARAM_MAPPINGS.get(param_type, {})
+    
+    # 尝试获取用户输入值对应的常量
+    result = mapping.get(user_value.lower())
+    if result is not None:
+        return result
+    
+    # 如果没找到，使用默认键
+    result = mapping.get(default_key)
+    if result is not None:
+        return result
+    
+    # 如果默认键也没找到，使用第一个可用的值
+    if mapping:
+        return list(mapping.values())[0]
+    
+    # 最后的保险：返回一个安全的默认值
+    return JmMagicConstants.CATEGORY_ALL if param_type == 'category' else \
+           JmMagicConstants.TIME_ALL if param_type == 'time' else \
+           JmMagicConstants.ORDER_BY_LATEST
+
 # PDF转换工具函数
 def sorted_numeric_filenames(file_list: List[str]) -> List[str]:
     """对文件名按数字部分排序"""
@@ -261,31 +322,76 @@ def convert_album_to_pdf(album_dir: str, base_output_dir: Optional[str] = None) 
     return success
 
 @app.tool()
-async def search_comic(query: str, page: int = 1) -> str:
+async def search_comic(
+    query: str, 
+    page: int = 1,
+    main_tag: int = 0,
+    order_by: str = 'latest',
+    time_period: str = 'all',
+    category: str = 'all'
+) -> str:
     """
-    Searches for comics on jmcomic.
+    Searches for comics on jmcomic with advanced filtering options.
 
     Args:
         query: The search query.
-        page: The page number to retrieve.
+        page: The page number to retrieve. Defaults to 1.
+        main_tag: Main tag filter. Defaults to 0.
+        order_by: Sort order. Options: 'latest', 'view', 'picture', 'like'. Defaults to 'latest'.
+        time_period: Time period filter. Options: 'today', 'week', 'month', 'all'. Defaults to 'all'.
+        category: Category filter. Options: 'all', 'doujin', 'single', 'short', 'another', 
+                 'hanman', 'meiman', 'doujin_cosplay', '3d', 'english_site'. Defaults to 'all'.
 
     Returns:
         A JSON string containing the search results.
     """
     try:
+        # 使用统一的映射表获取对应的常量值
+        order_value = get_mapped_value('order', order_by, 'latest')
+        time_value = get_mapped_value('time', time_period, 'all')
+        category_value = get_mapped_value('category', category, 'all')
+        
         loop = asyncio.get_running_loop()
-        func = functools.partial(client.search_site, search_query=query, page=page)
+        func = functools.partial(
+            client.search,
+            search_query=query,
+            page=page,
+            main_tag=main_tag,
+            order_by=order_value,
+            time=time_value,
+            category=category_value,
+            sub_category=None
+        )
         search_page: JmSearchPage = await loop.run_in_executor(
             None, func
         )
         results = []
-        for album_id, title in itertools.islice(search_page, 10):
+        for album_id, title in itertools.islice(search_page, 20):  # 返回20个结果
             results.append({"id": album_id, "title": title})
         
         if not results:
             return json.dumps({"message": "No results found."})
-            
-        return json.dumps(results, ensure_ascii=False)
+        
+        # 返回更详细的搜索信息
+        response = {
+            "search_params": {
+                "query": query,
+                "page": page,
+                "main_tag": main_tag,
+                "order_by": order_by,
+                "time_period": time_period,
+                "category": category
+            },
+            "constants_used": {
+                "order_by": order_value,
+                "time": time_value,
+                "category": category_value
+            },
+            "results": results,
+            "total_results": len(results)
+        }
+        
+        return json.dumps(response, ensure_ascii=False)
     except JmcomicException as e:
         return json.dumps({"error": f"jmcomic error: {e}"})
     except Exception as e:
@@ -358,6 +464,73 @@ async def get_ranking_list(period: str = 'week') -> str:
             results.append({"id": album_id, "title": title})
             
         return json.dumps(results, ensure_ascii=False)
+    except JmcomicException as e:
+        return json.dumps({"error": f"jmcomic error: {e}"})
+    except Exception as e:
+        return json.dumps({"error": f"An unexpected error occurred: {e}"})
+
+@app.tool()
+async def filter_comics_by_category(
+    category: str = 'all',
+    time_period: str = 'all',
+    order_by: str = 'latest',
+    page: int = 1
+) -> str:
+    """
+    Filters comics by category, time period, and sorting method.
+
+    Args:
+        category: The category to filter by. Options: 'all', 'doujin', 'single', 'short', 
+                 'another', 'hanman', 'meiman', 'doujin_cosplay', '3D', 'english_site'.
+                 Defaults to 'all'.
+        time_period: The time period to filter by. Options: 'today', 'week', 'month', 'all'.
+                    Defaults to 'all'.
+        order_by: Sort order. Options: 'latest', 'view', 'picture', 'like'. Defaults to 'latest'.
+        page: Page number to retrieve. Defaults to 1.
+
+    Returns:
+        A JSON string containing the filtered results.
+    """
+    try:
+        # 使用统一的映射表获取对应的常量值
+        category_value = get_mapped_value('category', category, 'all')
+        time_value = get_mapped_value('time', time_period, 'all')
+        order_value = get_mapped_value('order', order_by, 'latest')
+        
+        # 执行筛选请求
+        loop = asyncio.get_running_loop()
+        func = functools.partial(
+            client.categories_filter,
+            page=page,
+            category=category_value,
+            time=time_value,
+            order_by=order_value
+        )
+        
+        category_page: JmCategoryPage = await loop.run_in_executor(None, func)
+        
+        results = []
+        for album_id, title in itertools.islice(category_page, 20):  # 返回20个结果
+            results.append({"id": album_id, "title": title})
+        
+        if not results:
+            return json.dumps({
+                "message": f"No results found for category: {category}, time: {time_period}, order: {order_by}"
+            })
+        
+        response = {
+            "filters": {
+                "category": category,
+                "time_period": time_period,
+                "order_by": order_by,
+                "page": page
+            },
+            "results": results,
+            "total_results": len(results)
+        }
+        
+        return json.dumps(response, ensure_ascii=False)
+        
     except JmcomicException as e:
         return json.dumps({"error": f"jmcomic error: {e}"})
     except Exception as e:
@@ -603,59 +776,7 @@ async def convert_album_to_pdf_tool(album_id: str, album_dir: Optional[str] = No
     except Exception as e:
         return f"转换专辑 {album_id} 为PDF时发生错误: {e}"
 
-@app.tool()
-async def batch_convert_to_pdf(base_directory: Optional[str] = None) -> str:
-    """
-    Batch converts all downloaded albums in a directory to PDF.
 
-    Args:
-        base_directory: The base directory containing album folders. 
-                       If not provided, uses the default download directory.
-
-    Returns:
-        A message indicating the batch conversion status.
-    """
-    try:
-        # 确定基础目录
-        if base_directory is None:
-            base_directory = option.dir_rule.base_dir
-        
-        if not os.path.exists(base_directory):
-            return f"错误：基础目录不存在 {base_directory}"
-        
-        # 在后台执行批量转换
-        loop = asyncio.get_running_loop()
-        
-        def batch_convert():
-            converted_count = 0
-            failed_count = 0
-            
-            print(f"[批量] 开始批量转换目录：{base_directory}")
-            
-            for entry in os.listdir(base_directory):
-                entry_path = os.path.join(base_directory, entry)
-                if os.path.isdir(entry_path):
-                    # 跳过已存在的PDF
-                    pdf_path = os.path.join(base_directory, f"{entry}.pdf")
-                    if os.path.exists(pdf_path):
-                        print(f"[跳过] 跳过已有PDF：{entry}.pdf")
-                        continue
-                    
-                    print(f"[转换] 转换专辑：{entry}")
-                    success = convert_album_to_pdf(entry_path, base_directory)
-                    if success:
-                        converted_count += 1
-                    else:
-                        failed_count += 1
-            
-            return converted_count, failed_count
-        
-        converted_count, failed_count = await loop.run_in_executor(None, batch_convert)
-        
-        return f"批量转换完成：成功转换 {converted_count} 个专辑，失败 {failed_count} 个专辑"
-        
-    except Exception as e:
-        return f"批量转换PDF时发生错误: {e}"
 
 if __name__ == "__main__":
     app.run(transport='stdio')
